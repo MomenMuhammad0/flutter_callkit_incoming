@@ -73,6 +73,7 @@ class CallkitNotificationService : Service() {
                 ?.let {
                     getCallkitNotificationManager()?.clearIncomingNotification(it, true)
                     if (it.getBoolean(CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW, true)) {
+                        getCallkitNotificationManager()?.createNotificationChanel(it)
                         showOngoingCallNotification(it)
                     }else {
                         stopSelf()
@@ -99,13 +100,7 @@ class CallkitNotificationService : Service() {
 
     private fun startForeground(notificationId: Int, notification: Notification, isVideo: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            var mask = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                if (isVideo) {
-                    mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-                }
-            }
+            val mask = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
             startForeground(notificationId, notification, mask)
         } else {
             startForeground(notificationId, notification)
