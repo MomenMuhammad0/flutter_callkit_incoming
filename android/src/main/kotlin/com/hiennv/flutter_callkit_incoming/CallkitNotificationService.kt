@@ -1,6 +1,7 @@
 package com.hiennv.flutter_callkit_incoming
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.Service
 import android.content.Context
@@ -100,10 +101,27 @@ class CallkitNotificationService : Service() {
 
     private fun startForeground(notificationId: Int, notification: Notification, isVideo: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val mask = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+            var mask = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (isAppInForeground(this)) {
+                    mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    if (isVideo) {
+                        mask = mask or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    }
+                }
+            }
             startForeground(notificationId, notification, mask)
         } else {
             startForeground(notificationId, notification)
+        }
+    }
+
+    private fun isAppInForeground(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
+        return runningAppProcesses.any {
+            it.processName == context.packageName &&
+                    it.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
         }
     }
 

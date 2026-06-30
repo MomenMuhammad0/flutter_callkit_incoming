@@ -2,6 +2,7 @@ package com.hiennv.flutter_callkit_incoming
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -169,6 +170,27 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
     private var context: Context? = null
     private var callkitNotificationManager: CallkitNotificationManager? = null
     private var callkitSoundPlayerManager: CallkitSoundPlayerManager? = null
+
+    private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+        override fun onActivityStarted(activity: Activity) {}
+        override fun onActivityResumed(activity: Activity) {
+            val context = activity.applicationContext
+            val activeCalls = getDataActiveCalls(context)
+            val acceptedCall = activeCalls.firstOrNull { it.isAccepted }
+            if (acceptedCall != null) {
+                CallkitNotificationService.startServiceWithAction(
+                    context,
+                    CallkitConstants.ACTION_CALL_ACCEPT,
+                    acceptedCall.toBundle()
+                )
+            }
+        }
+        override fun onActivityPaused(activity: Activity) {}
+        override fun onActivityStopped(activity: Activity) {}
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
 
     fun getCallkitNotificationManager(): CallkitNotificationManager? {
         return callkitNotificationManager
@@ -469,24 +491,22 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
         instance.context = binding.activity.applicationContext
         instance.activity = binding.activity
         binding.addRequestPermissionsResultListener(this)
+        binding.activity.application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
+        instance.activity?.application?.unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         instance.context = binding.activity.applicationContext
         instance.activity = binding.activity
         binding.addRequestPermissionsResultListener(this)
+        binding.activity.application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
     }
 
     override fun onDetachedFromActivity() {
-        // Keep instance.context alive. It is the applicationContext, shared by
-        // every engine attachment and safe to hold for the lifetime of the JVM.
-        // Nulling it here would break background-isolate method channel calls
-        // (showCallkitIncoming relies on `context?.sendBroadcast(...)`) whenever
-        // the activity is destroyed while a cached background engine keeps the
-        // static `instance` alive.
+        instance.activity?.application?.unregisterActivityLifecycleCallbacks(activityLifecycleCallbacks)
         instance.activity = null
     }
 
